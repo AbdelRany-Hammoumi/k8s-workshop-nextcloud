@@ -24,30 +24,33 @@ By the end of the technical work you will have:
 
 ```
   Browser
-    │ https://nextcloud.local    https://grafana.local
+    │ https://nextcloud.local        https://grafana.local
     ▼
-  ┌────────────────────────────────────────────────────────────────────┐
-  │  kind cluster                                                      │
-  │                                                                    │
-  │  MetalLB ── Traefik ──────────────────────────────────────────┐   │
-  │  ◄── cert-manager (ClusterIssuer)                             │   │
-  │       ↕ TLS Secrets auto-created                              │   │
-  │                                                               │   │
-  │  ┌─────────────────────────────────────────────────────────┐  │   │
-  │  │ namespace: nextcloud    (unchanged from Day 2)           │  │   │
-  │  │  Nextcloud pod  ─  PostgreSQL (CNPG)  ─  Redis          │  │   │
-  │  │  Ingress: nextcloud.local  (+ TLS annotation)           │  │   │
-  │  └─────────────────────────────────────────────────────────┘  │   │
-  │                                                               │   │
-  │  ┌─────────────────────────────────────────────────────────┐  │   │
-  │  │ namespace: monitoring                                   │  │   │
-  │  │  Prometheus (scrapes all namespaces)                    │  │   │
-  │  │  Grafana  ←  Ingress: grafana.local (+ TLS)            │  │   │
-  │  │  Alertmanager                                           │  │   │
-  │  │  ServiceMonitor / PodMonitor → CloudNativePG metrics    │  │   │
-  │  └─────────────────────────────────────────────────────────┘  │   │
-  └────────────────────────────────────────────────────────────────┘   │
-  └────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────┐
+│ kind cluster                                                          │
+│                                                                       │
+│  MetalLB → Traefik  ◄── TLS Secrets ── cert-manager                   │
+│               │                        ClusterIssuer: selfsigned      │
+│               │                        watches annotated Ingresses    │
+│               │                        creates TLS Secrets on demand  │
+│          ┌────┴────┐                                                  │
+│          ▼         ▼                                                  │
+│  ┌──────────────────────────────────────────────────────────────────┐ │
+│  │ namespace: nextcloud                                             │ │
+│  │  Nextcloud Pod · PostgreSQL (CNPG) · Redis                       │ │
+│  │  Ingress: nextcloud.local  + TLS annotation                      │ │
+│  └──────────────────────────────────────────────────────────────────┘ │
+│                      │                                                │
+│                      │ PodMonitor scrapes CNPG metrics                │
+│                      ▼                                                │
+│  ┌──────────────────────────────────────────────────────────────────┐ │
+│  │ namespace: monitoring                                            │ │
+│  │  Prometheus (scrapes all namespaces via PodMonitor/SMon.)        │ │
+│  │  Grafana                                                         │ │
+│  │  Alertmanager                                                    │ │
+│  │  Ingress: grafana.local  + TLS annotation                        │ │
+│  └──────────────────────────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
