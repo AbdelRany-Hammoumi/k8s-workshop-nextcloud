@@ -30,7 +30,7 @@ A `/28` block gives 14 usable IPs — more than enough.
 ## Install MetalLB
 
 ```bash
-helm repo add metallb https://metallb.io/charts
+helm repo add metallb https://metallb.github.io/metallb
 helm repo update
 
 helm install metallb metallb/metallb \
