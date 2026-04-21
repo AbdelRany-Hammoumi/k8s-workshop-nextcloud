@@ -28,22 +28,22 @@ By the end of Day 1 you will have:
   ┌────────────────────────────────────────────────────────────────┐
   │  kind cluster                                                  │
   │                                                                │
-  │  ┌─────────────────────────────────────────────────────────┐  │
-  │  │ metallb-system                                          │  │
-  │  │  controller (Deployment)  +  speaker (DaemonSet/node)   │  │
-  │  │  IPAddressPool ── L2Advertisement                        │  │
-  │  └──────────────────────────────┬──────────────────────────┘  │
+  │  ┌─────────────────────────────────────────────────────────┐   │
+  │  │ metallb-system                                          │   │
+  │  │  controller (Deployment)  +  speaker (DaemonSet/node)   │   │
+  │  │  IPAddressPool ── L2Advertisement                       │   │
+  │  └──────────────────────────────┬──────────────────────────┘   │
   │                                 │ assigns LoadBalancer IP      │
-  │  ┌──────────────────────────────▼──────────────────────────┐  │
-  │  │ traefik                                                 │  │
-  │  │  DaemonSet  (nodeSelector: ingress-ready=true)          │  │
-  │  │  Service/LoadBalancer  →  ExternalIP from MetalLB       │  │
-  │  └──────────────────────────────┬──────────────────────────┘  │
+  │  ┌──────────────────────────────▼──────────────────────────┐   │
+  │  │ traefik                                                 │   │
+  │  │  DaemonSet  (nodeSelector: ingress-ready=true)          │   │
+  │  │  Service/LoadBalancer  →  ExternalIP from MetalLB       │   │
+  │  └──────────────────────────────┬──────────────────────────┘   │
   │                                 │ routes Ingress rules         │
-  │  ┌──────────────────────────────▼──────────────────────────┐  │
-  │  │ default                                                 │  │
-  │  │  Ingress(test.local) → ClusterIP Service → nginx pod    │  │
-  │  └─────────────────────────────────────────────────────────┘  │
+  │  ┌──────────────────────────────▼──────────────────────────┐   │
+  │  │ default                                                 │   │
+  │  │  Ingress(test.local) → ClusterIP Service → nginx pod    │   │
+  │  └─────────────────────────────────────────────────────────┘   │
   │                                                                │
   │  StorageClass: standard  (local-path-provisioner, default)     │
   └────────────────────────────────────────────────────────────────┘
