@@ -147,15 +147,15 @@ check_test_ingress() {
 
   local status
 
-  # 1) localhost + Host header — works on macOS, WSL2, and any platform where the kind
-  # cluster binds 80/443 to the host via extraPortMappings. This is the path that
-  # succeeds for the vast majority of students.
+  # 1) Resolve $host to 127.0.0.1 — works on macOS, WSL2, and any platform where kind
+  # binds 80/443 to the host via extraPortMappings. --resolve is preferred over
+  # -H "Host:" because it survives redirects (the Location header keeps $host).
   status=$(curl -s -o /dev/null -w "%{http_code}" \
            --max-time 8 --connect-timeout 4 \
-           -H "Host: $host" "http://localhost" 2>/dev/null || echo "000")
+           --resolve "$host:80:127.0.0.1" "http://$host" 2>/dev/null || echo "000")
   [ "$status" = "200" ] && return 0
 
-  # 2) Traefik EXTERNAL-IP + Host header — works only on Linux native, where the
+  # 2) Resolve $host to the Traefik EXTERNAL-IP — works on Linux native, where the
   # Docker bridge IPs are routable from the host. Fails on macOS/WSL2 (Docker in VM).
   local ip
   ip=$(kubectl get svc -n traefik \
@@ -163,11 +163,11 @@ check_test_ingress() {
   if [ -n "${ip:-}" ]; then
     status=$(curl -s -o /dev/null -w "%{http_code}" \
              --max-time 8 --connect-timeout 4 \
-             -H "Host: $host" "http://$ip" 2>/dev/null || echo "000")
+             --resolve "$host:80:$ip" "http://$host" 2>/dev/null || echo "000")
     [ "$status" = "200" ] && return 0
   fi
 
-  # 3) Direct URL — requires /etc/hosts (or Windows hosts) to map $host appropriately.
+  # 3) Plain URL — relies on /etc/hosts (or Windows hosts) to map $host appropriately.
   status=$(curl -s -o /dev/null -w "%{http_code}" \
            --max-time 8 --connect-timeout 4 \
            "http://$host" 2>/dev/null || echo "000")
