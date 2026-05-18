@@ -200,9 +200,11 @@ check_alertmanager_running() {
 
 check_grafana_running() {
   local ready
+  # kubectl get -l returns a List, so use items[0] in jsonpath — bare .status.readyReplicas
+  # against a List always yields empty and reports the check as failed.
   ready=$(kubectl get deployment -n monitoring \
           -l app.kubernetes.io/name=grafana \
-          -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+          -o jsonpath='{.items[0].status.readyReplicas}' 2>/dev/null || echo "0")
   [ "${ready:-0}" -ge 1 ]
 }
 
