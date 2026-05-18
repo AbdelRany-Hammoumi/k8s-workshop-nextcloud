@@ -196,11 +196,6 @@ check_nextcloud_endpoints_populated() {
 _nextcloud_http_status() {
   command -v curl &>/dev/null || return 1
 
-  # Try via Traefik IP + Host header (does not require hosts file)
-  local ip
-  ip=$(kubectl get svc -n traefik \
-       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
-
   # Determine the hostname from the Nextcloud Ingress
   local host
   host=$(kubectl get ingress -n nextcloud \
@@ -208,6 +203,18 @@ _nextcloud_http_status() {
   host="${host:-nextcloud.local}"
 
   local status="000"
+
+  # 1) localhost + Host header — works on macOS, WSL2, and Linux thanks to kind's
+  # extraPortMappings binding 80/443 to the host.
+  status=$(curl -sk -o /dev/null -w "%{http_code}" \
+           --max-time 10 --connect-timeout 5 \
+           -H "Host: $host" "http://localhost" 2>/dev/null || echo "000")
+  { [ "$status" = "200" ] || [ "$status" = "302" ] || [ "$status" = "301" ]; } && return 0
+
+  # 2) Traefik EXTERNAL-IP + Host header — only routable on Linux native.
+  local ip
+  ip=$(kubectl get svc -n traefik \
+       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   if [ -n "${ip:-}" ]; then
     status=$(curl -sk -o /dev/null -w "%{http_code}" \
              --max-time 10 --connect-timeout 5 \
@@ -215,7 +222,7 @@ _nextcloud_http_status() {
     { [ "$status" = "200" ] || [ "$status" = "302" ] || [ "$status" = "301" ]; } && return 0
   fi
 
-  # Fallback: direct URL (requires hosts file configuration)
+  # 3) Direct URL — requires hosts file configuration.
   status=$(curl -sk -o /dev/null -w "%{http_code}" \
            --max-time 10 --connect-timeout 5 \
            "http://$host" 2>/dev/null || echo "000")
@@ -230,12 +237,19 @@ check_nextcloud_login_page() {
   command -v curl &>/dev/null || return 1
 
   local ip host body
-  ip=$(kubectl get svc -n traefik \
-       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   host=$(kubectl get ingress -n nextcloud \
          -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || true)
   host="${host:-nextcloud.local}"
 
+  # 1) localhost + Host header (macOS/WSL2/Linux via kind extraPortMappings)
+  body=$(curl -skL -o - \
+         --max-time 15 --connect-timeout 5 \
+         -H "Host: $host" "http://localhost" 2>/dev/null || true)
+  echo "$body" | grep -qi "nextcloud\|password\|login" && return 0
+
+  # 2) Traefik EXTERNAL-IP + Host header (Linux native only)
+  ip=$(kubectl get svc -n traefik \
+       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   if [ -n "${ip:-}" ]; then
     body=$(curl -skL -o - \
            --max-time 15 --connect-timeout 5 \
@@ -243,6 +257,7 @@ check_nextcloud_login_page() {
     echo "$body" | grep -qi "nextcloud\|password\|login" && return 0
   fi
 
+  # 3) Direct URL (hosts file)
   body=$(curl -skL -o - \
          --max-time 15 --connect-timeout 5 \
          "http://$host" 2>/dev/null || true)

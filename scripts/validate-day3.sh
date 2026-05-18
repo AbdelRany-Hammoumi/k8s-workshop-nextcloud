@@ -149,12 +149,19 @@ check_nextcloud_https() {
   command -v curl &>/dev/null || return 1
 
   local ip host status
-  ip=$(kubectl get svc -n traefik \
-       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   host=$(kubectl get ingress -n nextcloud \
          -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || true)
   host="${host:-nextcloud.local}"
 
+  # 1) localhost + Host header (macOS/WSL2/Linux via kind extraPortMappings)
+  status=$(curl -sk -o /dev/null -w "%{http_code}" \
+           --max-time 10 --connect-timeout 5 \
+           -H "Host: $host" "https://localhost" 2>/dev/null || echo "000")
+  { [ "$status" = "200" ] || [ "$status" = "302" ] || [ "$status" = "301" ]; } && return 0
+
+  # 2) Traefik EXTERNAL-IP + Host header (Linux native only)
+  ip=$(kubectl get svc -n traefik \
+       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   if [ -n "${ip:-}" ]; then
     status=$(curl -sk -o /dev/null -w "%{http_code}" \
              --max-time 10 --connect-timeout 5 \
@@ -162,7 +169,7 @@ check_nextcloud_https() {
     { [ "$status" = "200" ] || [ "$status" = "302" ] || [ "$status" = "301" ]; } && return 0
   fi
 
-  # Fallback: direct URL (requires hosts file)
+  # 3) Direct URL (hosts file)
   status=$(curl -sk -o /dev/null -w "%{http_code}" \
            --max-time 10 --connect-timeout 5 \
            "https://$host" 2>/dev/null || echo "000")
@@ -240,12 +247,19 @@ check_grafana_https() {
   command -v curl &>/dev/null || return 1
 
   local ip host status
-  ip=$(kubectl get svc -n traefik \
-       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   host=$(kubectl get ingress -n monitoring \
          -o jsonpath='{.items[0].spec.rules[0].host}' 2>/dev/null || true)
   host="${host:-grafana.local}"
 
+  # 1) localhost + Host header (macOS/WSL2/Linux via kind extraPortMappings)
+  status=$(curl -sk -o /dev/null -w "%{http_code}" \
+           --max-time 10 --connect-timeout 5 \
+           -H "Host: $host" "https://localhost" 2>/dev/null || echo "000")
+  { [ "$status" = "200" ] || [ "$status" = "302" ]; } && return 0
+
+  # 2) Traefik EXTERNAL-IP + Host header (Linux native only)
+  ip=$(kubectl get svc -n traefik \
+       -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
   if [ -n "${ip:-}" ]; then
     status=$(curl -sk -o /dev/null -w "%{http_code}" \
              --max-time 10 --connect-timeout 5 \
@@ -253,7 +267,7 @@ check_grafana_https() {
     { [ "$status" = "200" ] || [ "$status" = "302" ]; } && return 0
   fi
 
-  # Fallback: direct URL (requires hosts file)
+  # 3) Direct URL (hosts file)
   status=$(curl -sk -o /dev/null -w "%{http_code}" \
            --max-time 10 --connect-timeout 5 \
            "https://$host" 2>/dev/null || echo "000")
